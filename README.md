@@ -8,6 +8,6 @@ wget -O - https://raw.githubusercontent.com/EfficiencyVI/adcmmp/master/curse.bas
 
 The program will run and will do most things for you.
 
-IMPORTANT NOTICE
+#IMPORTANT NOTICE
 
-This program is not written or maintained by curse.com. So don't blame them if anything does not work.
+This program is not written or maintained by curse.com. So don't blame them if anything does not work for you!
