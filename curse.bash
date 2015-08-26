@@ -50,8 +50,6 @@ if [ -r /tmp/curse_downloader_config ]; then
   . /tmp/curse_downloader_config
 fi
 
-echo $warning
-
 if [ "$warning" -lt "$VERSION" ] ; then
     dialog --backtitle "$BACKTITLE" --title "What is this?" --yesno "\
 \nWelcome! This is my alternative installer for Minecraft mod packs \
@@ -123,16 +121,22 @@ the official website and support the authors. https://multimc.org" 30 70
     esac
 fi
 
+wget --quiet -O - http://www.curse.com/modpacks/minecraft | sed -n -e 's!.*<li class="title"><h4><a href="\/modpacks\/minecraft/\([0-9]*\)-\(.*\)">\(.*\)<\/a>.*!\1 \3!p' | recode html..ascii > $OUTPUT
+echo "233818 The Purple Garden: A Garden of Glass Modpack" >> $OUTPUT
+echo "999999 other" >> $OUTPUT
+
+MODPACKS=()
+while read id name ; do
+    MODPACKS+=($id "$name")
+done < $OUTPUT
+
 while true; do
     dialog --backtitle "$BACKTITLE" --title "Select modpack!" --menu "\
 \nSome popular packs are already preinstalled in this program. Just \
 use the up and down keys to select the modpack you want. If your \
 desired modpack is not in the list choose other for more options.\n\n" 30 70 8 \
-    233818 "The Purple Garden: A Garden of Glass Modpack" \
-    233579 "Forgecraft - The Modpack" \
-    225550 "Agrarian Skies 2" \
-    227425 "Magic Farms 3: Harvest" \
-    999999 "other" 2>"${INPUT}"
+  "${MODPACKS[@]}" \
+  2>"${INPUT}"
     menuitem=$(<"${INPUT}")
 
     if [ "$menuitem" = "" ]; then
@@ -148,6 +152,7 @@ Just type in the number!" 30 70 2>"${INPUT}"
     fi
     menuitem=$menuitem | sed 's/[^0-9]*//g'
 
+    # TODO: Version selection
     URL="http://minecraft.curseforge.com/modpacks/$menuitem-modpack/files/latest"
     TITLE=$(wget --quiet -O - "http://minecraft.curseforge.com/modpacks/$menuitem-modpack" | sed -n -e 's!.*<title>Overview - \(.*\) - Modpacks.*!\1!p' | recode html..ascii)
 
