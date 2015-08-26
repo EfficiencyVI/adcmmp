@@ -7,3 +7,7 @@ The usage of this file is pretty easy. Open a console (e. g. Alt + F2 and type x
 wget -O - https://raw.githubusercontent.com/EfficiencyVI/adcmmp/master/curse.bash | bash -
 
 The program will run and will do most things for you.
+
+#IMPORTANT NOTICE
+
+This program is not written or maintained by curse.com. So don't blame them if anything does not work for you!
