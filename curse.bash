@@ -36,6 +36,9 @@ if [ "$(which jq)" = "" ] || [ "$(which recode)" = "" ] || [ "$(which dialog)" =
                     sudo zypper jq recode dialog
                 elif [ ! "$(which emerge)" = "" ]; then
                     sudo emerge jq recode dialog
+                else
+                    echo "There is no known package manger installed. Please install the programs manually and start this program again!"
+                    exit 1
                 fi
                 break
             ;;
