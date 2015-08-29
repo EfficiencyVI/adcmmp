@@ -1,19 +1,24 @@
 #!/bin/bash
 
+# Shutdown the program and delete all tmp files
 function shutdown {
     # Cleanup
     [ -d $TMP ] && rm -fr $TMP
     exit 0
 }
 
+# Never run this program as root
 if [[ $EUID -eq 0 ]]; then
     echo >&2 "This program should never be run using sudo or as the root user!\n"
     exit 1
 fi
 
+# Basic variables
 warning=0
-VERSION=1
-BACKTITLE="Alternative Downloader for Curse Minecraft Modpacks V0.1"
+VERSION=2
+BACKTITLE="Alternative Downloader for Curse Minecraft Modpacks V0.2"
+MMCDIR=""
+MMCBIN=""
 
 # Check for needed programs
 if [ "$(which jq)" = "" ] || [ "$(which recode)" = "" ] || [ "$(which dialog)" = "" ]; then
@@ -48,8 +53,8 @@ if [ "$(which jq)" = "" ] || [ "$(which recode)" = "" ] || [ "$(which dialog)" =
     done
 fi
 
+# Reading existing config
 if [ -r /tmp/curse_downloader_config ]; then
-  echo "Reading config...." >&2
   . /tmp/curse_downloader_config
 fi
 
@@ -66,9 +71,9 @@ means expect it to not work, show odd errors, destroy your data or kill \
 your hamster!\n\n\
 I put a lot of effort in ensuring that this program works as best as \
 possible and I'm pretty sure everything will work for you. But I will \
-take no resposibility or guarantee that everything goes well no matter \
+take no resposibility or guarantee that everything goes wrong no matter \
 if you use it correct or not.\n\n\
-Only if you are okay to be a test bunny click yes to proceed!" 30 70
+Only if you are okay to be a test bunny click \"Yes\" to proceed!" 30 70
 
     # Read response from dialog
     dialog=$?
@@ -79,7 +84,7 @@ Only if you are okay to be a test bunny click yes to proceed!" 30 70
 fi
 
 # Start a new installation
-# Create temp file for menus
+# Create temp file for menus and temp data
 TMP=/tmp/curse.$$
 INPUT=$TMP/input
 OUTPUT=$TMP/output
@@ -88,7 +93,72 @@ mkdir $TMP > /dev/null 2>&1
 rm -fr $TMP/* > /dev/null 2>&1
 mkdir $TMP/modpack > /dev/null 2>&1
 
-if [ ! -d $HOME/.MultiMC/ ] ; then
+# Check for installation path
+# Fixes issue #1 Thanks to marcmagus 
+loc=($(ls -a $HOME | grep -i "multimc"))
+for i in "${!loc[@]}"
+do
+    # Skip standard folder and use as fallback
+    if [ "${loc[i]}" = ".MultiMC" ] ; then
+        MMCDIR=$HOME"/.MultiMC"
+        MMCBIN=$MMCDIR"/MultiMC"
+        continue
+    fi
+    if [ -d $HOME/${loc[i]}/instances ] ; then
+        dialog --backtitle "$BACKTITLE" --title "Possible installation of MultiMC found" --yesno "\
+\nThere is a possible installation of MultiMC on your system. The folder is located \
+in $HOME/${loc[i]}.  \
+\n\nMost likely this program was installed by a software manager or by yourself. \
+If you are not sure about this select \"No\" to search for more possible installations \
+or install the program in the default directory. \
+\n\nIf you want to use this installation select \"Yes\". \"No\" will search for more \
+MultiMC instances or use an existing standard installation or install it for you." 30 70
+
+        # Read response from dialog
+        dialog=$?
+        case $dialog in
+            0) 
+                MMCDIR=$HOME/${loc[i]}
+                if [ -x $HOME/${loc[i]}/MultiMC ] ; then
+                    MMCBIN=$HOME/${loc[i]}/MultiMC
+                else
+                    # find alternative binary location (for the real weird)
+                    locb=(${PATH//:/ })
+                    for j in "${!locb[@]}"
+                    do
+                         tmpb=$(ls ${locb[j]} | grep -i "multimc")
+                         echo $tmpb
+                         if [ ! "$tmpb" = "" ] && [ -x ${locb[j]}/$tmpb ] ; then
+                            dialog --backtitle "$BACKTITLE" --title "Possible binary of MultiMC found" --yesno "\
+\nThere is a possible binary file of MultiMC in ${locb[j]}/$tmpb. Do you want to use this binary?" 30 70
+                            dialogb=$?
+                            case $dialogb in
+                                0)
+                                    MMCBIN=${locb[j]}/$tmpb
+                                    break
+                                ;;
+                            esac
+                         fi
+                    done
+                fi
+                break
+                ;;
+        esac
+    fi
+done
+
+if [ "$MMCDIR" = "" ] || [ "$MMCBIN" = "" ] ; then
+    dialog --backtitle "$BACKTITLE" --title "An error occured" --msgbox "\
+\nOh oh! Sorry, but I could not determine a suitable installation location \
+or binary file. If you don't know what to do. No panic! \
+\n\n1.) Restart this program \
+\n2.) Select \"No\" when it shows you an existing installation on your system \
+\n3.) Install MultiMC in the default location" 30 70
+fi
+
+# Only offer installation if standard path was not changed
+# and MultiMC is not installed
+if [ "$MMCDIR" = "" ] && [ ! -d $HOME/.MultiMC/ ] ; then
     dialog --backtitle "$BACKTITLE" --title "About MultiMC" --yesno "\
 \nMultiMC is an alternative launcher for Minecraft. It gives you a lot \
 of options to manage multiple instances of Minecraft like Modpacks, \
@@ -116,11 +186,18 @@ the official website and support the authors. https://multimc.org" 30 70
                 tar -xzf $TMP/MultiMC.tar.gz -C $TMP
                 mkdir $HOME/.MultiMC
                 cp -r $TMP/MultiMC/* $HOME/.MultiMC/
+                MMCDIR=$HOME"/.MultiMC"
+                MMCBIN=$MMCDIR"MultiMC"
             fi
             ;;
        *)
-            # TODO: Alternative!
-            shutdown
+            if [ "$MMCDIR" = "" ] || [ "$MMCBIN" = "" ] ; then
+                dialog --backtitle "$BACKTITLE" --title "An error occured" --msgbox "\
+\nOh oh! Sorry, but I could not determine a suitable location for MultiMC. \
+If you don't know what to do, restart this program and select the standard \
+installation for your system." 30 70
+                shutdown
+            fi
     esac
 fi
 
@@ -137,7 +214,7 @@ while true; do
     dialog --backtitle "$BACKTITLE" --title "Select modpack!" --menu "\
 \nSome popular packs are already preinstalled in this program. Just \
 use the up and down keys to select the modpack you want. If your \
-desired modpack is not in the list choose other for more options.\n\n" 30 70 8 \
+desired modpack is not in the list choose other for more options.\n\n" 30 70 20 \
   "${MODPACKS[@]}" \
   2>"${INPUT}"
     menuitem=$(<"${INPUT}")
@@ -183,8 +260,8 @@ MVER=$(cat $FILE | jq '.minecraft.version' | sed 's/^.\(.*\).$/\1/')
 FVER=$(cat $FILE | jq '.minecraft.modLoaders[0].id' | sed 's/^.forge-\(.*\).$/\1/')
 f=0
 
-mkdir -p "$HOME/.MultiMC/instances/$MP ($VER)" > /dev/null 2>&1
-cat >"$HOME/.MultiMC/instances/$MP ($VER)/instance.cfg" <<EOL
+mkdir -p "$MMCDIR/instances/$MP ($VER)" > /dev/null 2>&1
+cat >"$MMCDIR/instances/$MP ($VER)/instance.cfg" <<EOL
 InstanceType=OneSix
 name=${MP} (${VER})
 IntendedVersion=${MVER}
@@ -196,7 +273,7 @@ EOL
 echo <<< EOL
 
 while true; do
-    if [ -f "$HOME/.MultiMC/instances/$MP ($VER)/patches/net.minecraftforge.json" ] && [ $(cat "$HOME/.MultiMC/instances/$MP ($VER)/patches/net.minecraftforge.json" | grep $FVER | wc -l) -gt "0" ]; then
+    if [ -f "$MMCDIR/instances/$MP ($VER)/patches/net.minecraftforge.json" ] && [ $(cat "$MMCDIR/instances/$MP ($VER)/patches/net.minecraftforge.json" | grep $FVER | wc -l) -gt "0" ]; then
         break
     else
         dialog --backtitle "$BACKTITLE" --title "How to set up MultiMC!" --msgbox "\
@@ -213,7 +290,7 @@ the installation will not proceed unless the correct forge version is detected. 
 After you selected the right version close MultiMC and the installation can \
 finish.\n\nIf you get back to this screen after you closed the program \
 something went wrong. Most likely you picked the wrong version." 30 70
-        $HOME/.MultiMC/MultiMC
+        bash $MMCBIN
     fi
 done
 
@@ -237,11 +314,11 @@ page. Depending on the number of mods this may take a while." 10 100
 done
 
 dialog --backtitle "$BACKTITLE" --title "Welcome!" --checklist "\
-\nThese are all mods that have to be downloaded to make this modpack\
-working for you. To select or deselect single mods use your up and down\
-keys and press space. All mods with an asterisk in front will be downloaded.\
-Optional mods are not selected by default. Mostly they are more useful for\
-server owners or have only decorative purposes. Refer to the modpack description\
+\nThese are all mods that have to be downloaded to make this modpack \
+working for you. To select or deselect single mods use your up and down \
+keys and press space. All mods with an asterisk in front will be downloaded. \
+Optional mods are not selected by default. Mostly they are more useful for \
+server owners or have only decorative purposes. Refer to the modpack description \
 or authors for more information.\n\n" 30 70 20 "${modlist[@]}" 2>$OUTPUT
 
 if [ "$(cat $OUTPUT)" = "" ]; then
@@ -264,7 +341,7 @@ do
 done
 
 # Copy all the files into MultiMC
-cp -r $TMP/modpack/overrides/* "$HOME/.MultiMC/instances/$MP ($VER)/minecraft/" > /dev/null 2>&1
+cp -r $TMP/modpack/overrides/* "$MMCDIR/instances/$MP ($VER)/minecraft/" > /dev/null 2>&1
 
 dialog --backtitle "$BACKTITLE" --title "Welcome!" --msgbox "\
 \nEverything should be ready for you now. After you click \"OK\" MultiMC \
@@ -278,5 +355,5 @@ or add a shortcut in your start menu. You don't need this program anymore!\
 If you have any suggestions or improvements tell me about it or contribute \
 in the package! https://github.com/EfficiencyVI/adcmmp or efficiencyvi6@gmail.com" 30 70
 
-$HOME/.MultiMC/MultiMC &
+bash $MMCBIN &
 shutdown
