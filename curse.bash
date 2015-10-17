@@ -36,7 +36,7 @@ if [ "$(which jq)" = "" ] || [ "$(which recode)" = "" ] || [ "$(which dialog)" =
                 elif [ ! "$(which pacman)" = "" ]; then
                     sudo pacman -S jq recode dialog
                 elif [ ! "$(which yum)" = "" ]; then
-                    sudo yum jq recode dialog
+                    sudo yum install jq recode dialog
                 elif [ ! "$(which zypper)" = "" ]; then
                     sudo zypper jq recode dialog
                 elif [ ! "$(which emerge)" = "" ]; then
