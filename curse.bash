@@ -249,6 +249,15 @@ wget -O $TMP/tmp.zip "$URL" 2>&1 | \
 
 echo "0" | dialog --backtitle "$BACKTITLE" --title "Preparing files" --gauge "Please wait" 10 100
 unzip $TMP/tmp.zip -d $TMP/modpack > /dev/null 2>&1
+
+# Fix overrides folder - some packs contains wrongly cased one
+
+overdir=$(/bin/ls -1 "$TMP/modpack/" | grep -i overrides | head -n1)
+
+if [ "$overdir" != "overrides" ]; then
+  mv "${TMP}/modpack/${overdir}" "${TMP}/modpack/overrides"
+fi
+
 echo "100" | dialog --backtitle "$BACKTITLE" --title "Preparing files" --gauge "Please wait" 10 100
 
 FILE=$TMP/modpack/manifest.json
