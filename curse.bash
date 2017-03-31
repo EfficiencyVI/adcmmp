@@ -201,7 +201,7 @@ installation for your system." 30 70
     esac
 fi
 
-wget --quiet -O - http://www.curse.com/modpacks/minecraft | sed -n -e 's!.*<li class="title"><h4><a href="\/modpacks\/minecraft/\([0-9]*\)-\(.*\)">\(.*\)<\/a>.*!\1 \3!p' | recode html..ascii > $OUTPUT
+wget --quiet -O - https://www.curse.com/modpacks/minecraft | sed -n -e 's!.*<li class="title"><h4><a href="\/modpacks\/minecraft/\([0-9]*\)-\(.*\)">\(.*\)<\/a>.*!\1 \3!p' | recode html..ascii > $OUTPUT
 echo "233818 The Purple Garden: A Garden of Glass Modpack" >> $OUTPUT
 echo "999999 other" >> $OUTPUT
 
@@ -233,8 +233,8 @@ Just type in the number!" 30 70 2>"${INPUT}"
     menuitem=$menuitem | sed 's/[^0-9]*//g'
 
     # TODO: Version selection
-    URL="http://minecraft.curseforge.com/modpacks/$menuitem-modpack/files/latest"
-    TITLE=$(wget --quiet -O - "http://minecraft.curseforge.com/modpacks/$menuitem-modpack" | sed -n -e 's!.*<title>Overview - \(.*\) - Modpacks.*!\1!p' | recode html..ascii)
+    URL="https://curseforge.com/projects/$menuitem/files/latest"
+    TITLE=$(wget --quiet -O - "https://curseforge.com/projects/$menuitem" | sed -n -e 's!.*<title>Overview - \(.*\) - Modpacks.*!\1!p' | recode html..ascii)
 
     if [ ! "$TITLE" = "" ]; then
         break
@@ -306,13 +306,14 @@ done
 modnames+=( "" )
 for i in $(seq $TO)
 do
-        echo $((100/$TO*$i)) | dialog --backtitle "$BACKTITLE" --title "Generating Modlist" --gauge "\
+        # echo $((100/$TO*$i)) | dialog --backtitle "$BACKTITLE" --title "Generating Modlist" --gauge "\
+        echo $(((100*i)/TO)) | dialog --backtitle "$BACKTITLE" --title "Generating Modlist" --gauge "\
 \nUnfortunately Curse does not provide the Mod names in the configuration file. \
 To make the list usable for you all the names are now downloaded from the curse \
 page. Depending on the number of mods this may take a while." 10 100
         REQ=$(cat $FILE | jq '.files['$i-1'].required')
         PID=$(cat $FILE | jq '.files['$i-1'].projectID')
-        TITLE=$(wget --quiet -O - http://minecraft.curseforge.com/mc-mods/$PID | sed -n -e 's!.*<title>Overview - \(.*\) - Mods.*!\1!p' | recode html..ascii)
+        TITLE=$(wget --quiet -O - https://www.curseforge.com/projects/$PID | sed -n -e 's!.*<title>Overview - \(.*\) - Mods.*!\1!p' | recode html..ascii)
 
         if [ "$REQ" = "null" ] || [ $REQ = "true" ]; then
             modlist+=( "$i" "$TITLE" "on" )
@@ -339,8 +340,8 @@ do
     PID=$(cat $FILE | jq '.files['$n-1'].projectID')
     FID=$(cat $FILE | jq '.files['$n-1'].fileID')
     TITLE=${modnames[$n]}
-    URL='http://minecraft.curseforge.com/mc-mods/'$PID'-mod/files/'$FID'/download'
-    VERIFY='http://minecraft.curseforge.com/mc-mods/'$PID'-mod/files/'$FID
+    URL='https://www.curseforge.com/projects/'$PID'/files/'$FID'/download'
+    VERIFY='https://www.curseforge.com/projects/'$PID'/files/'$FID
 
     wget -P $TMP/modpack/overrides/mods/ --trust-server-names "$URL" 2>&1 | \
     stdbuf -o0 awk '/[.] +[0-9][0-9]?[0-9]?%/ { print substr($0,63,3) }' | \
