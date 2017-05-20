@@ -16,7 +16,7 @@ fi
 # Basic variables
 warning=0
 VERSION=2
-BACKTITLE="Alternative Downloader for Curse Minecraft Modpacks V0.2"
+BACKTITLE="Alternative Downloader for Curse Minecraft Modpacks V0.3"
 MMCDIR=""
 MMCBIN=""
 
@@ -201,8 +201,10 @@ installation for your system." 30 70
     esac
 fi
 
-wget --quiet -O - http://www.curse.com/modpacks/minecraft | sed -n -e 's!.*<li class="title"><h4><a href="\/modpacks\/minecraft/\([0-9]*\)-\(.*\)">\(.*\)<\/a>.*!\1 \3!p' | recode html..ascii > $OUTPUT
-echo "233818 The Purple Garden: A Garden of Glass Modpack" >> $OUTPUT
+for i in $(seq 1 10)
+do
+    wget --quiet -O - https://mods.curse.com/modpacks/minecraft?page=$i | sed -n -e 's!.*<li class="title"><h4><a href="\/modpacks\/minecraft/\(.*\)">\(.*\)<\/a>.*!\1 \2!p' >> $OUTPUT
+done
 echo "999999 other" >> $OUTPUT
 
 MODPACKS=()
@@ -230,18 +232,21 @@ http://www.curse.com/modpacks/minecraft/229330-crash-landing-1-6-4 would be 2293
 Just type in the number!" 30 70 2>"${INPUT}"
         menuitem=$(<"${INPUT}")
     fi
-    menuitem=$menuitem | sed 's/[^0-9]*//g'
-
+    #menuitem=$menuitem | sed 's/[^0-9]*//g'
+    
     # TODO: Version selection
-    URL="http://minecraft.curseforge.com/modpacks/$menuitem-modpack/files/latest"
-    TITLE=$(wget --quiet -O - "http://minecraft.curseforge.com/modpacks/$menuitem-modpack" | sed -n -e 's!.*<title>Overview - \(.*\) - Modpacks.*!\1!p' | recode html..ascii)
+    URL="https://mods.curse.com/modpacks/minecraft/$menuitem"
+
+    TITLE=$(wget --quiet -O - "$URL" | sed -n -e 's!.*<title>\(.*\) - \(.*\) - Minecraft Modpacks - Curse.*!\1!p' | recode html..ascii)
 
     if [ ! "$TITLE" = "" ]; then
         break
     fi
 done
 
-wget -O $TMP/tmp.zip "$URL" 2>&1 | \
+DLURL=$(wget --quiet -O - $URL/download | sed -n -e 's!.*<a data-project="\(.*\)" data-file="\(.*\)" data-href="\(.*\)" class="download-link" href="#">click here.*!\3!p' | recode html..ascii)
+
+wget -O $TMP/tmp.zip "$DLURL" 2>&1 | \
  stdbuf -o0 awk '/[.] +[0-9][0-9]?[0-9]?%/ { print substr($0,63,3) }' | \
  dialog --backtitle "$BACKTITLE" --title "Downloading Modpack" --gauge "\n Downloading \"$TITLE\"" 10 100
 
@@ -312,7 +317,7 @@ To make the list usable for you all the names are now downloaded from the curse 
 page. Depending on the number of mods this may take a while." 10 100
         REQ=$(cat $FILE | jq '.files['$i-1'].required')
         PID=$(cat $FILE | jq '.files['$i-1'].projectID')
-        TITLE=$(wget --quiet -O - http://minecraft.curseforge.com/mc-mods/$PID | sed -n -e 's!.*<title>Overview - \(.*\) - Mods.*!\1!p' | recode html..ascii)
+        TITLE=$(wget --quiet -O - https://minecraft.curseforge.com/mc-mods/$PID | sed -n -e 's!.*<title>Overview - \(.*\) - Mods.*!\1!p' | recode html..ascii)
 
         if [ "$REQ" = "null" ] || [ $REQ = "true" ]; then
             modlist+=( "$i" "$TITLE" "on" )
@@ -339,8 +344,10 @@ do
     PID=$(cat $FILE | jq '.files['$n-1'].projectID')
     FID=$(cat $FILE | jq '.files['$n-1'].fileID')
     TITLE=${modnames[$n]}
-    URL='http://minecraft.curseforge.com/mc-mods/'$PID'-mod/files/'$FID'/download'
-    VERIFY='http://minecraft.curseforge.com/mc-mods/'$PID'-mod/files/'$FID
+
+    PROJECTURL=$(curl -Ls -o /dev/null -w %{url_effective} https://minecraft.curseforge.com/mc-mods/$PID)
+    URL=$PROJECTURL'/files/'$FID'/download'
+    VERIFY=$PROJECTURL'/files/'$FID
 
     wget -P $TMP/modpack/overrides/mods/ --trust-server-names "$URL" 2>&1 | \
     stdbuf -o0 awk '/[.] +[0-9][0-9]?[0-9]?%/ { print substr($0,63,3) }' | \
